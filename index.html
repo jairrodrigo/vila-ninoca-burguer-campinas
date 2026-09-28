@@ -160,6 +160,18 @@ footer .aviso{font-size:11px;color:#7a7264;max-width:800px;margin-top:10px;line-
 .sacola-rodape .linha{display:flex;justify-content:space-between;font-size:14px;color:var(--muted);margin-bottom:8px}
 .sacola-rodape .total{display:flex;justify-content:space-between;font-size:22px;font-weight:800;color:#fff;margin:14px 0 18px}
 .sacola-rodape .total b{color:var(--destaque)}
+.sacola-entrega{margin-bottom:18px}
+.sacola-entrega label.rotulo{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin:14px 0 8px}
+.sacola-entrega label.rotulo:first-child{margin-top:0}
+.opcoes-pill{display:flex;gap:8px;flex-wrap:wrap}
+.pill-btn{flex:1;min-width:90px;text-align:center;background:var(--card);border:1px solid var(--linha);color:var(--muted);border-radius:9px;padding:10px 12px;font-size:13px;font-weight:700;cursor:pointer;transition:.15s}
+.pill-btn:hover{border-color:var(--acento)}
+.pill-btn.ativo{background:var(--acento);border-color:var(--acento);color:var(--acento-txt)}
+.campo-endereco{margin-top:10px}
+.campo-endereco textarea,.campo-troco input{width:100%;background:var(--card);border:1px solid var(--linha);border-radius:9px;padding:11px 13px;color:#fff;font-size:13.5px;font-family:inherit;resize:vertical}
+.campo-endereco textarea:focus,.campo-troco input:focus{outline:none;border-color:var(--acento)}
+.campo-endereco textarea::placeholder,.campo-troco input::placeholder{color:var(--muted)}
+.campo-troco{margin-top:10px}
 @media(max-width:860px){.hero-bg{left:0;right:0}.hero::before{background:linear-gradient(180deg,#100d0bb3 0%,#100d0be0 60%,#100d0bf2 100%)}.hero-in{padding:72px 0 84px}.trust .wrap{grid-template-columns:repeat(2,1fr)}.grid-cards{grid-template-columns:1fr 1fr}.gal-grid{grid-template-columns:repeat(2,1fr);grid-auto-rows:170px}.info-grid{grid-template-columns:1fr 1fr}.menu-nav{display:none}.passos{grid-template-columns:1fr}.historia .wrap{grid-template-columns:1fr}.stats .wrap{grid-template-columns:repeat(2,1fr)}.servicos .wrap{grid-template-columns:1fr 1fr}.btn-sacola .txt small{display:none}}
 @media(max-width:560px){.status{display:none}.logo small{font-size:9px;letter-spacing:.5px}.btn-sacola{margin-left:auto;padding:8px 12px}.btn-sacola .txt b{white-space:nowrap}.hero-cta .btn{flex:1;justify-content:center}.grid-cards{grid-template-columns:1fr}.info-grid{grid-template-columns:1fr}.servicos .wrap{grid-template-columns:1fr}}
 </style>
@@ -288,6 +300,25 @@ footer .aviso{font-size:11px;color:#7a7264;max-width:800px;margin-top:10px;line-
 <div class="sacola-topo"><h3>Sua sacola</h3><button class="fechar-btn" id="fechar-sacola" aria-label="Fechar"><svg class="ico"><use href="#fechar"/></svg></button></div>
 <div class="sacola-lista" id="sacola-lista"></div>
 <div class="sacola-rodape">
+<div class="sacola-entrega">
+<label class="rotulo"><svg class="ico" style="width:14px;height:14px"><use href="#pin"/></svg>Como vai ser</label>
+<div class="opcoes-pill" id="opcoes-tipo">
+<button type="button" class="pill-btn ativo" data-tipo="retirada">Retirar no local</button>
+<button type="button" class="pill-btn" data-tipo="entrega">Entrega</button>
+</div>
+<div class="campo-endereco" id="campo-endereco" style="display:none">
+<textarea id="endereco-input" rows="2" placeholder="Rua, número, bairro e ponto de referência"></textarea>
+</div>
+<label class="rotulo"><svg class="ico" style="width:14px;height:14px"><use href="#cartao"/></svg>Forma de pagamento</label>
+<div class="opcoes-pill" id="opcoes-pagamento">
+<button type="button" class="pill-btn" data-pag="Pix">Pix</button>
+<button type="button" class="pill-btn" data-pag="Cartão">Cartão</button>
+<button type="button" class="pill-btn" data-pag="Dinheiro">Dinheiro</button>
+</div>
+<div class="campo-troco" id="campo-troco" style="display:none">
+<input type="text" id="troco-input" placeholder="Precisa de troco pra quanto? (opcional)">
+</div>
+</div>
 <div class="linha"><span>Subtotal</span><span id="sacola-subtotal">R$ 0,00</span></div>
 <div class="total"><span>Total</span><b id="sacola-total">R$ 0,00</b></div>
 <button class="btn btn-acento btn-full" id="finalizar-btn"><svg class="ico"><use href="#zap"/></svg>Finalizar no WhatsApp</button>
@@ -304,6 +335,10 @@ const CHAVE = "vilaninoca_carrinho";
 let carrinho = {};
 try { carrinho = JSON.parse(localStorage.getItem(CHAVE) || "{}"); } catch(e) { carrinho = {}; }
 function salvarCarrinho(){ try { localStorage.setItem(CHAVE, JSON.stringify(carrinho)); } catch(e){} }
+
+let entregaInfo = { tipo: "retirada", endereco: "", pagamento: "", troco: "" };
+try { Object.assign(entregaInfo, JSON.parse(localStorage.getItem(CHAVE + "_entrega") || "{}")); } catch(e){}
+function salvarEntrega(){ try { localStorage.setItem(CHAVE + "_entrega", JSON.stringify(entregaInfo)); } catch(e){} }
 function fmt(v){ return "R$ " + v.toFixed(2).replace(".", ","); }
 function totalCarrinho(){
   return Object.keys(carrinho).reduce((soma, id) => {
@@ -413,6 +448,38 @@ document.getElementById("fechar-sacola").addEventListener("click", fecharSacola)
 document.getElementById("overlay").addEventListener("click", fecharSacola);
 document.getElementById("mini-resumo").addEventListener("click", abrirSacola);
 
+const elCampoEndereco = document.getElementById("campo-endereco");
+const elEnderecoInput = document.getElementById("endereco-input");
+const elCampoTroco = document.getElementById("campo-troco");
+const elTrocoInput = document.getElementById("troco-input");
+
+function aplicarEntregaNaTela(){
+  document.querySelectorAll("#opcoes-tipo .pill-btn").forEach(b => b.classList.toggle("ativo", b.dataset.tipo === entregaInfo.tipo));
+  document.querySelectorAll("#opcoes-pagamento .pill-btn").forEach(b => b.classList.toggle("ativo", b.dataset.pag === entregaInfo.pagamento));
+  elCampoEndereco.style.display = entregaInfo.tipo === "entrega" ? "block" : "none";
+  elCampoTroco.style.display = entregaInfo.pagamento === "Dinheiro" ? "block" : "none";
+  elEnderecoInput.value = entregaInfo.endereco;
+  elTrocoInput.value = entregaInfo.troco;
+}
+aplicarEntregaNaTela();
+
+document.getElementById("opcoes-tipo").addEventListener("click", (e) => {
+  const btn = e.target.closest(".pill-btn");
+  if (!btn) return;
+  entregaInfo.tipo = btn.dataset.tipo;
+  salvarEntrega();
+  aplicarEntregaNaTela();
+});
+document.getElementById("opcoes-pagamento").addEventListener("click", (e) => {
+  const btn = e.target.closest(".pill-btn");
+  if (!btn) return;
+  entregaInfo.pagamento = btn.dataset.pag;
+  salvarEntrega();
+  aplicarEntregaNaTela();
+});
+elEnderecoInput.addEventListener("input", () => { entregaInfo.endereco = elEnderecoInput.value; salvarEntrega(); });
+elTrocoInput.addEventListener("input", () => { entregaInfo.troco = elTrocoInput.value; salvarEntrega(); });
+
 function montarMensagemPedido(){
   const ids = Object.keys(carrinho).filter(id => carrinho[id] > 0 && PRODUTOS.some(p => p.id === id));
   if (!ids.length) return null;
@@ -420,10 +487,22 @@ function montarMensagemPedido(){
     const p = PRODUTOS.find(x => x.id === id);
     return `${carrinho[id]}x ${p.nome} — ${fmt(p.preco * carrinho[id])}`;
   });
-  return `Olá! Vim pelo site e quero fazer um pedido:\n\n${linhas.join("\n")}\n\nTotal: ${fmt(totalCarrinho())}\n\n(Endereço para entrega ou retirada no local, por favor)`;
+  const partes = [`Olá! Vim pelo site e quero fazer um pedido:`, "", linhas.join("\n"), "", `Total: ${fmt(totalCarrinho())}`, ""];
+  if (entregaInfo.tipo === "entrega") {
+    partes.push(`📍 Entrega: ${entregaInfo.endereco.trim()}`);
+  } else {
+    partes.push(`🏠 Retirada no local`);
+  }
+  let linhaPagamento = `💳 Pagamento: ${entregaInfo.pagamento}`;
+  if (entregaInfo.pagamento === "Dinheiro" && entregaInfo.troco.trim()) linhaPagamento += ` (troco pra ${entregaInfo.troco.trim()})`;
+  partes.push(linhaPagamento);
+  return partes.join("\n");
 }
 
 document.getElementById("finalizar-btn").addEventListener("click", () => {
+  if (!Object.keys(carrinho).some(id => carrinho[id] > 0)){ alert("Sua sacola está vazia — escolha algo no cardápio primeiro."); return; }
+  if (entregaInfo.tipo === "entrega" && !entregaInfo.endereco.trim()){ alert("Preencha o endereço de entrega."); elEnderecoInput.focus(); return; }
+  if (!entregaInfo.pagamento){ alert("Escolha a forma de pagamento."); return; }
   const msg = montarMensagemPedido();
   if (!msg){ alert("Sua sacola está vazia — escolha algo no cardápio primeiro."); return; }
   window.open(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`, "_blank");
